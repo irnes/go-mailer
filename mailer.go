@@ -1,6 +1,7 @@
 package mailer
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/smtp"
 )
@@ -50,13 +51,10 @@ func (m *SMTP) Send(mail *Mail) (err error) {
 	server := fmt.Sprintf("%s:%d", m.Host, m.Port)
 	// Set up authentication information.
 	auth := smtp.PlainAuth("", m.User, m.Pass, m.Host)
-	// Prepare message content according to RFC 822-style
-	msg := []byte(fmt.Sprintf("From: %s <%s>\r\nSubject: %s\r\n\r\n%s\r\n",
-		mail.FromName, mail.From, mail.Subject, mail.Body))
 
 	// Connect to the server, authenticate, set the sender and recipient,
 	// and send the email all in one step.
-	err = smtp.SendMail(server, auth, mail.From, mail.To, msg)
+	err = smtp.SendMail(server, auth, mail.From, mail.To, mail.Raw())
 
 	return
 }
@@ -69,5 +67,52 @@ type SMTPSLL struct {
 
 // Send an email and waits for the process to end, giving proper error feedback
 func (m *SMTPSLL) Send(mail *Mail) (err error) {
+	// TLS config
+	tlsconfig := &tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         m.Host,
+	}
+
+	// Call tls.Dial instead of smtp.Dial for smtp servers running on 465
+	// that require an ssl connection from the very beginning (no starttls)
+	server := fmt.Sprintf("%s:%d", m.Host, m.Port)
+	conn, err := tls.Dial("tcp", server, tlsconfig)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	c, err := smtp.NewClient(conn, m.Host)
+	if err != nil {
+		return
+	}
+	defer c.Quit()
+
+	// Set up authentication information.
+	auth := smtp.PlainAuth("", m.User, m.Pass, m.Host)
+	if err = c.Auth(auth); err != nil {
+		return
+	}
+
+	// Set sender and recipents
+	if err = c.Mail(mail.From); err != nil {
+		return
+	}
+	for _, rcpt := range mail.To {
+		c.Rcpt(rcpt)
+	}
+
+	// Data
+	w, err := c.Data()
+	if err != nil {
+		return
+	}
+	defer w.Close()
+
+	_, err = w.Write(mail.Raw())
+	if err != nil {
+		return
+	}
+
 	return nil
 }

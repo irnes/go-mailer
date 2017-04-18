@@ -20,21 +20,15 @@ type Mailer interface {
 }
 
 // NewMailer returns a new Mailer using provided configuration
-func NewMailer(host string, port int, user, pass string, ssl bool) Mailer {
+func NewMailer(config Config, ssl bool) Mailer {
 	var mailer Mailer
 	if ssl {
 		smtpssl := new(SMTPSLL)
-		smtpssl.Host = host
-		smtpssl.Port = port
-		smtpssl.User = user
-		smtpssl.Pass = pass
+		smtpssl.Config = config
 		mailer = smtpssl
 	} else {
 		smtp := new(SMTP)
-		smtp.Host = host
-		smtp.Port = port
-		smtp.User = user
-		smtp.Pass = pass
+		smtp.Config = config
 		mailer = smtp
 	}
 	return mailer

@@ -1,2 +1,2 @@
 # go-mailer
-Go e-mail sender 
+:mailbox_with_mail: GO Mailer

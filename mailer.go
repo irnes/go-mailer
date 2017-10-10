@@ -43,8 +43,12 @@ type SMTP struct {
 // Send an email and waits for the process to end, giving proper error feedback
 func (m *SMTP) Send(mail *Mail) (err error) {
 	server := fmt.Sprintf("%s:%d", m.Host, m.Port)
+
+	var auth smtp.Auth
 	// Set up authentication information.
-	auth := smtp.PlainAuth("", m.User, m.Pass, m.Host)
+	if m.User != "" && m.Pass != "" {
+		auth = smtp.PlainAuth("", m.User, m.Pass, m.Host)
+	}
 
 	// Connect to the server, authenticate, set the sender and recipient,
 	// and send the email all in one step.
